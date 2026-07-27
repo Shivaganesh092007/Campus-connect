@@ -12,7 +12,6 @@ const campusBuzzSchema = new Schema(
             type: Schema.Types.ObjectId,
             ref: "User",
             required: true,
-            select: false, // excluded from queries by default — never sent to frontend
         },
         likes: [
             {

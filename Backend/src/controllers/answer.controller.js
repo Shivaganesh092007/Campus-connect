@@ -33,6 +33,50 @@ export const createAnswer = asyncHandler(async (req, res) => {
         .json(new ApiResponse(201, createdAnswer, "Answer posted successfully"));
 });
 
+export const updateAnswer = asyncHandler( async(req,res)=>{
+    const { text } = req.body;
+    const { questionId, answerId } = req.params;
+
+    if (!text?.trim()) {
+        throw new ApiError(400, "Answer text is required");
+    }
+
+    const question = await Question.findById(questionId);
+    if (!question) {
+        throw new ApiError(404, "Question does not exist");
+    }
+
+    const ans = await Answer.findById(answerId);
+
+    if(!ans){
+        throw new ApiError(404, "Answer does not exist");
+    }
+
+    if (ans.answeredBy.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You do not have permission to edit this answer");
+    }
+
+    if (ans.question.toString() !== questionId) {
+        throw new ApiError(400, "This answer does not belong to the specified question");
+    }
+
+    const updatedAnswer = await Answer.findByIdAndUpdate(
+        answerId,
+        {
+            $set:{
+                text:text
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    return res
+        .status(201)
+        .json(new ApiResponse(201, updatedAnswer, "Answer updated successfully"));
+})
+
 export const getAnswersForQuestion = asyncHandler(async (req, res) => {
     const { questionId } = req.params;
 

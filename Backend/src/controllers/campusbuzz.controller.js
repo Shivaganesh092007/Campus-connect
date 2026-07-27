@@ -25,6 +25,40 @@ export const createPost = asyncHandler(async (req, res) => {
         .json(new ApiResponse(201, createdPost, "Posted successfully"));
 });
 
+export const updatePost = asyncHandler(async (req,res)=>{
+    const { text } = req.body;
+
+    if (!text?.trim()) {
+        throw new ApiError(400, "Post text is required");
+    }
+
+    const post = await campusBuzz.findById(req.params.id);
+
+    if (!post) {
+        throw new ApiError(404, "Post does not exist");
+    }
+
+    if(post.postedBy.toString() !== req.user?._id.toString()){
+        throw new ApiError(403, "Unauthorised access");
+    }
+
+    const updatedPost = await campusBuzz.findByIdAndUpdate(
+        req.params.id,
+        {
+            $set: {
+                text: text
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, updatedPost, "Post updated successfully"));
+})
+
 export const getAllPosts = asyncHandler(async (req, res) => {
     const posts = await campusBuzz.find()// no filter arguments, which fetches every single post stored in the database collection.
         .populate("postedBy", "username fullName")
