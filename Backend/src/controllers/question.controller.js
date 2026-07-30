@@ -30,8 +30,46 @@ export const createQuestion=asyncHandler(async(req,res)=>{
     return res
         .status(201)
         .json(
-            new ApiResponse(201,createQuestion,"Question posted successfully")
+            new ApiResponse(201,createdQuestion,"Question posted successfully")
         )
+})
+
+export const updateQuestion = asyncHandler(async (req,res)=>{
+    const { id } = req.params;
+    const { title, description, branch, topic } = req.body;
+
+    if([title, description, branch, topic].some((field)=>!field.trim())){
+        throw new ApiError(400, "All fields required");
+    }
+
+    const question = await Question.findById(id);
+
+    if (!question) {
+        throw new ApiError(404, "Question does not exist");
+    }
+
+    if (question.askedBy.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You do not have permission to edit this question");
+    }
+
+    const updatedQuestion = await Question.findByIdAndUpdate(
+        id,
+        {
+            $set:{
+                title,
+                description,
+                branch,
+                topic
+            }
+        },
+        {
+            new: true
+        }
+    ).populate("askedBy","fullName username")
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, updatedQuestion, "Question updated successfully"));
 })
 
 export const getAllQuestions = asyncHandler(async (req, res) => {
