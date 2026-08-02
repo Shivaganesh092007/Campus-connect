@@ -12,11 +12,13 @@ const documentSchema = new Schema(
             required: true,
             uppercase: true,
             trim: true,
+            index: true,
         },
         branch: {
             type: String,
             required: true,
-            enum: ['CSE', 'ECE', 'MECH', 'CIVIL', 'EEE', 'CHEM', 'MME', 'BIOTECH']
+            enum: ['CSE', 'ECE', 'MECH', 'CIVIL', 'EEE', 'CHEM', 'MME', 'BIOTECH'],
+            index: true,
         },
         fileUrl: {
             type: String,

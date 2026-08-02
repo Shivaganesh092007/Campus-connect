@@ -25,4 +25,4 @@ const campusBuzzSchema = new Schema(
     }
 );
 
-export const campusBuzz = mongoose.model("campusBuzz", campusBuzzSchema);
+export const CampusBuzz = mongoose.model("CampusBuzz", campusBuzzSchema);

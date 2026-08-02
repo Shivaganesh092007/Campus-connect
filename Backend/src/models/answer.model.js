@@ -6,6 +6,7 @@ const answerSchema = new Schema(
             type: Schema.Types.ObjectId,
             ref: "Question",
             required: true,
+            index: true,
         },
         text: {
             type: String,

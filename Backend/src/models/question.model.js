@@ -15,11 +15,13 @@ const questionSchema = new Schema(
         branch: {
             type: String,
             required: true,
-            enum: ['CSE', 'ECE', 'MECH', 'CIVIL', 'EEE', 'CHEM', 'MME', 'BIOTECH']
+            enum: ['CSE', 'ECE', 'MECH', 'CIVIL', 'EEE', 'CHEM', 'MME', 'BIOTECH'],
+            index: true,
         },
         topic: {
             type: String,
             required: true,
+            index: true,
         },
         askedBy: {
             type: Schema.Types.ObjectId,
