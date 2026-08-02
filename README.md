@@ -29,7 +29,7 @@ Currently, this repository contains the backend API. While the frontend client i
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/Shiva-Ganesh9857/Campus-Connect.git](https://github.com/Shiva-Ganesh9857/Campus-Connect.git)
+   git clone [https://github.com/Shivaganesh092007/Campus-Connect.git](https://github.com/Shivaganesh092007/Campus-Connect.git)
    cd Campus-Connect
 
 
