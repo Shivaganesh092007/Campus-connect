@@ -1,3 +1,4 @@
+import fs from "fs";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js"
 import { deleteFileOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
@@ -6,8 +7,12 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 
 export const uploadDocument = asyncHandler(async (req,res)=>{
     const {title, courseCode, branch} = req.body;
+    const uploadedFilePath = req.file?.path;
 
     if([title,courseCode,branch].some((field)=>!field?.trim())) {
+        if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
+            fs.unlinkSync(uploadedFilePath);
+        }
         throw new ApiError(400, "All fields required");
     }
 
@@ -18,6 +23,10 @@ export const uploadDocument = asyncHandler(async (req,res)=>{
 
     const uploadFile=await uploadOnCloudinary(uploadedFilePath);
 
+    if (!uploadFile) {
+        throw new ApiError(500, "Failed to upload file to Cloudinary");
+    }
+
     const document=await Document.create({
         title,
         courseCode,
@@ -27,7 +36,7 @@ export const uploadDocument = asyncHandler(async (req,res)=>{
         uploadedBy:req.user._id,
     })
 
-    const uploadedFile = await Document.findById(document._id);
+    const uploadedFile = await Document.findById(document._id).populate("uploadedBy", "username fullName");
     if(!uploadedFile){
         throw new ApiError(500, "something went wrong while uploading");
     }
@@ -40,7 +49,6 @@ export const uploadDocument = asyncHandler(async (req,res)=>{
 });
 
 export const getAllDocuments = asyncHandler(async(req,res)=>{
-    try {
     const { search, branch, courseCode } = req.query; //search :- what user searched for
 
     //Initializing an empty filter object
@@ -56,10 +64,8 @@ export const getAllDocuments = asyncHandler(async(req,res)=>{
 
     if (search) {
       // Use regex for partial, case-insensitive matching on the title
-      filter.title = { 
-        $regex: search, 
-        $options: 'i' 
-      };
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        filter.title = { $regex: escapedSearch, $options: 'i' };
     }
 
     const documents = await Document.find(filter)
@@ -76,12 +82,6 @@ export const getAllDocuments = asyncHandler(async(req,res)=>{
             "Data fetched successfully"
         )
     );
-
-    } catch (error) {
-        console.error('Error fetching documents:', error);
-        
-        throw new ApiError(500,error.message,error)
-    }
 })
 
 export const deleteDocument = asyncHandler(async(req,res)=>{

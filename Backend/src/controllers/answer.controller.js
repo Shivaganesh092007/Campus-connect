@@ -35,7 +35,7 @@ export const createAnswer = asyncHandler(async (req, res) => {
 
 export const updateAnswer = asyncHandler( async(req,res)=>{
     const { text } = req.body;
-    const { questionId, answerId } = req.params;
+    const { questionId, id } = req.params;
 
     if (!text?.trim()) {
         throw new ApiError(400, "Answer text is required");
@@ -46,7 +46,7 @@ export const updateAnswer = asyncHandler( async(req,res)=>{
         throw new ApiError(404, "Question does not exist");
     }
 
-    const ans = await Answer.findById(answerId);
+    const ans = await Answer.findById(id);
 
     if(!ans){
         throw new ApiError(404, "Answer does not exist");
@@ -61,7 +61,7 @@ export const updateAnswer = asyncHandler( async(req,res)=>{
     }
 
     const updatedAnswer = await Answer.findByIdAndUpdate(
-        answerId,
+        id,
         {
             $set:{
                 text:text
@@ -73,8 +73,8 @@ export const updateAnswer = asyncHandler( async(req,res)=>{
     )
 
     return res
-        .status(201)
-        .json(new ApiResponse(201, updatedAnswer, "Answer updated successfully"));
+        .status(200)
+        .json(new ApiResponse(200, updatedAnswer, "Answer updated successfully"));
 })
 
 export const getAnswersForQuestion = asyncHandler(async (req, res) => {
@@ -90,26 +90,26 @@ export const getAnswersForQuestion = asyncHandler(async (req, res) => {
 });
 
 export const toggleAnswerUpvote = asyncHandler(async (req, res) => {
-    const answer = await Answer.findById(req.params.id);
+    const { id } = req.params;
+    const userId = req.user._id;
 
-    if (!answer) {
-        throw new ApiError(404, "Answer does not exist");
-    }
+    const answer = await Answer.findById(id);
+    if (!answer) throw new ApiError(404, "Answer does not exist");
 
-    const userId = req.user._id.toString();
-    const alreadyUpvoted = answer.upvotes.some((id) => id.toString() === userId);
+    const alreadyUpvoted = answer.upvotes.includes(userId);
+    const updateQuery = alreadyUpvoted 
+        ? { $pull: { upvotes: userId } } 
+        : { $addToSet: { upvotes: userId } };
 
-    if (alreadyUpvoted) {
-        answer.upvotes = answer.upvotes.filter((id) => id.toString() !== userId);
-    } else {
-        answer.upvotes.push(req.user._id);
-    }
+    const updatedAnswer = await Answer.findByIdAndUpdate(id, updateQuery, { new: true });
 
-    await answer.save();
-
-    return res
-        .status(200)
-        .json(new ApiResponse(200, { upvoteCount: answer.upvotes.length, upvoted: !alreadyUpvoted }, "Upvote toggled"));
+    return res.status(200).json(
+        new ApiResponse(
+            200, 
+            { upvoteCount: updatedAnswer.upvotes.length, upvoted: !alreadyUpvoted }, 
+            "Upvote toggled"
+        )
+    );
 });
 
 export const deleteAnswer = asyncHandler(async (req, res) => {

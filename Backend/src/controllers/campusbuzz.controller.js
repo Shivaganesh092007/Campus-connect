@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { campusBuzz } from "../models/campusbuzz.model.js";
+import { CampusBuzz } from "../models/campusbuzz.model.js";
 
 export const createPost = asyncHandler(async (req, res) => {
     const { text } = req.body;
@@ -10,12 +10,16 @@ export const createPost = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Post text is required");
     }
 
-    const post = await campusBuzz.create({
+    if (text.length > 500) {
+        throw new ApiError(400, "Post text cannot exceed 500 characters");
+    }
+
+    const post = await CampusBuzz.create({
         text,
         postedBy: req.user._id,
     });
 
-    const createdPost = await campusBuzz.findById(post._id).populate(
+    const createdPost = await CampusBuzz.findById(post._id).populate(
         "postedBy",
         "username fullName"
     );
@@ -32,7 +36,11 @@ export const updatePost = asyncHandler(async (req,res)=>{
         throw new ApiError(400, "Post text is required");
     }
 
-    const post = await campusBuzz.findById(req.params.id);
+    if (text.length > 500) {
+        throw new ApiError(400, "Post text cannot exceed 500 characters");
+    }
+
+    const post = await CampusBuzz.findById(req.params.id);
 
     if (!post) {
         throw new ApiError(404, "Post does not exist");
@@ -42,7 +50,7 @@ export const updatePost = asyncHandler(async (req,res)=>{
         throw new ApiError(403, "Unauthorised access");
     }
 
-    const updatedPost = await campusBuzz.findByIdAndUpdate(
+    const updatedPost = await CampusBuzz.findByIdAndUpdate(
         req.params.id,
         {
             $set: {
@@ -52,7 +60,7 @@ export const updatePost = asyncHandler(async (req,res)=>{
         {
             new: true
         }
-    )
+    ).populate("postedBy", "username fullName");
 
     return res
         .status(200)
@@ -60,40 +68,52 @@ export const updatePost = asyncHandler(async (req,res)=>{
 })
 
 export const getAllPosts = asyncHandler(async (req, res) => {
-    const posts = await campusBuzz.find()// no filter arguments, which fetches every single post stored in the database collection.
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const posts = await CampusBuzz.find()// no filter arguments, which fetches every single post stored in the database collection.
         .populate("postedBy", "username fullName")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+    const totalPosts = await CampusBuzz.countDocuments();
 
     return res
         .status(200)
-        .json(new ApiResponse(200, { count: posts.length, posts }, "Posts fetched successfully"));
+        .json(new ApiResponse(200, { count: posts.length,totalPosts, currentPage: page, posts }, "Posts fetched successfully"));
 });
 
 export const toggleLike = asyncHandler(async (req, res) => {
-    const post = await campusBuzz.findById(req.params.id);
+    const { id } = req.params;
+    const userId = req.user._id;
 
+    const post = await CampusBuzz.findById(id);
     if (!post) {
         throw new ApiError(404, "Post does not exist");
     }
 
-    const userId = req.user._id.toString();
-    const alreadyLiked = post.likes.some((id) => id.toString() === userId);
+    const alreadyLiked = post.likes.includes(userId);
+    const updateQuery = alreadyLiked
+        ? { $pull: { likes: userId } }
+        : { $addToSet: { likes: userId } };
 
-    if (alreadyLiked) {
-        post.likes = post.likes.filter((id) => id.toString() !== userId);
-    } else {
-        post.likes.push(req.user._id);
-    }
-
-    await post.save();
+    const updatedPost = await CampusBuzz.findByIdAndUpdate(id, updateQuery, { new: true });
 
     return res
         .status(200)
-        .json(new ApiResponse(200, { likeCount: post.likes.length, liked: !alreadyLiked }, "Like toggled"));
+        .json(
+            new ApiResponse(
+                200,
+                { likeCount: updatedPost.likes.length, liked: !alreadyLiked },
+                "Like toggled"
+            )
+        );
 });
 
 export const deletePost = asyncHandler(async (req, res) => {
-    const post = await campusBuzz.findById(req.params.id);
+    const post = await CampusBuzz.findById(req.params.id);
 
     if (!post) {
         throw new ApiError(404, "Post does not exist");
@@ -103,7 +123,7 @@ export const deletePost = asyncHandler(async (req, res) => {
         throw new ApiError(403, "Unauthorised access");
     }
 
-    await campusBuzz.findByIdAndDelete(post._id);
+    await CampusBuzz.findByIdAndDelete(post._id);
 
     return res
         .status(200)

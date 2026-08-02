@@ -13,7 +13,7 @@ import answerRouter from "./answer.routes.js";
 const router = Router();
 
 router.route("/").post(verifyJWT, createQuestion);
-router.route("/:id").patch(verifyJWT, updateQuestionQuestion);
+router.route("/:id").patch(verifyJWT, updateQuestion);
 router.route("/").get(getAllQuestions);
 router.route("/:id").get(getQuestionById);
 router.route("/:id/upvote").post(verifyJWT, toggleQuestionUpvote);

@@ -6,7 +6,7 @@ import { ApiError } from "../utils/ApiError.js"
 export const createQuestion=asyncHandler(async(req,res)=>{
     const {title, description, branch, topic}=req.body;
 
-    if([title, description, branch, topic].some((field)=>!field.trim())){
+    if([title, description, branch, topic].some((field)=>!field?.trim())){
         throw new ApiError(400, "All fields required");
     }
 
@@ -18,7 +18,7 @@ export const createQuestion=asyncHandler(async(req,res)=>{
         askedBy: req.user._id,
     })
 
-    const createdQuestion = await Question.findById(question._id).populate(
+    const createdQuestion = await question.populate(
         "askedBy",
         "username fullName"
     );
@@ -38,7 +38,7 @@ export const updateQuestion = asyncHandler(async (req,res)=>{
     const { id } = req.params;
     const { title, description, branch, topic } = req.body;
 
-    if([title, description, branch, topic].some((field)=>!field.trim())){
+    if([title, description, branch, topic].some((field)=>!field?.trim())){
         throw new ApiError(400, "All fields required");
     }
 
@@ -80,7 +80,8 @@ export const getAllQuestions = asyncHandler(async (req, res) => {
     if (topic) filter.topic = topic;
     if (status) filter.status = status;
     if (search) {
-        filter.title = { $regex: search, $options: "i" };
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        filter.title = { $regex: escapedSearch, $options: 'i' };
     }
 
     const questions = await Question.find(filter)
@@ -108,26 +109,34 @@ export const getQuestionById = asyncHandler(async (req, res) => {
 });
 
 export const toggleQuestionUpvote = asyncHandler(async (req, res) => {
-    const question = await Question.findById(req.params.id);
+    const { id } = req.params;
+    const userId = req.user._id;
 
+    const question = await Question.findById(id);
     if (!question) {
         throw new ApiError(404, "Question does not exist");
     }
 
-    const userId = req.user._id.toString();
-    const alreadyUpvoted = question.upvotes.some((id) => id.toString() === userId);
+    const alreadyUpvoted = question.upvotes.includes(userId);
+    const updateQuery = alreadyUpvoted
+        ? { $pull: { upvotes: userId } }
+        : { $addToSet: { upvotes: userId } };
 
-    if (alreadyUpvoted) {
-        question.upvotes = question.upvotes.filter((id) => id.toString() !== userId);
-    } else {
-        question.upvotes.push(req.user._id);
-    }
-
-    await question.save();
+    const updatedQuestion = await Question.findByIdAndUpdate(
+        id,
+        updateQuery, 
+        { new: true }
+    );
 
     return res
         .status(200)
-        .json(new ApiResponse(200, { upvoteCount: question.upvotes.length, upvoted: !alreadyUpvoted }, "Upvote toggled"));
+        .json(
+            new ApiResponse(
+                200,
+                { upvoteCount: updatedQuestion.upvotes.length, upvoted: !alreadyUpvoted },
+                "Upvote toggled"
+            )
+        );
 });
 
 export const markQuestionSolved = asyncHandler(async (req, res) => {
