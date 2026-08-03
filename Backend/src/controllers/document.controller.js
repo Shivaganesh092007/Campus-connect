@@ -1,4 +1,5 @@
 import fs from "fs";
+import mongoose from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js"
 import { deleteFileOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
@@ -16,7 +17,6 @@ export const uploadDocument = asyncHandler(async (req,res)=>{
         throw new ApiError(400, "All fields required");
     }
 
-    const uploadedFilePath=req.file?.path;
     if(!uploadedFilePath){
         throw new ApiError(400, "No file found");
     }
@@ -36,8 +36,36 @@ export const uploadDocument = asyncHandler(async (req,res)=>{
         uploadedBy:req.user._id,
     })
 
-    const uploadedFile = await Document.findById(document._id).populate("uploadedBy", "username fullName");
-    if(!uploadedFile){
+    const uploadedFile = await Document.aggregate([
+        {
+            $match: {
+                _id: document._id
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "uploadedBy",
+                foreignField: "_id",
+                as: "uploadedBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                uploadedBy: { $first: "$uploadedBy" }
+            }
+        }
+    ]);
+
+    if(!uploadedFile || uploadedFile.length === 0){
         throw new ApiError(500, "something went wrong while uploading");
     }
 
@@ -63,14 +91,40 @@ export const getAllDocuments = asyncHandler(async(req,res)=>{
     }
 
     if (search) {
-      // Use regex for partial, case-insensitive matching on the title
+        // Use regex for partial, case-insensitive matching on the title
         const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         filter.title = { $regex: escapedSearch, $options: 'i' };
     }
 
-    const documents = await Document.find(filter)
-      .populate('uploadedBy', 'username fullName') // Only fetches username and fullName
-      .sort({ createdAt: -1 }); //sorts by newest first
+    const documents = await Document.aggregate([
+        {
+            $match: filter
+        },
+        {
+            $sort: { createdAt: -1 }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "uploadedBy",
+                foreignField: "_id",
+                as: "uploadedBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                uploadedBy: { $first: "$uploadedBy" }
+            }
+        }
+    ]);
 
     return res.status(200).json(
         new ApiResponse(

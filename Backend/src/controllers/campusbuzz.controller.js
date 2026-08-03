@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -19,10 +20,34 @@ export const createPost = asyncHandler(async (req, res) => {
         postedBy: req.user._id,
     });
 
-    const createdPost = await CampusBuzz.findById(post._id).populate(
-        "postedBy",
-        "username fullName"
-    );
+    const createdPost = await CampusBuzz.aggregate([
+        {
+            $match: {
+                _id: post._id
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "postedBy",
+                foreignField: "_id",
+                as: "postedBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                postedBy: { $first: "$postedBy" }
+            }
+        }
+    ]);
 
     return res
         .status(201)
@@ -50,17 +75,34 @@ export const updatePost = asyncHandler(async (req,res)=>{
         throw new ApiError(403, "Unauthorised access");
     }
 
-    const updatedPost = await CampusBuzz.findByIdAndUpdate(
-        req.params.id,
+    const updatedPost = await CampusBuzz.aggregate([
         {
-            $set: {
-                text: text
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.params.id)
             }
         },
         {
-            new: true
+            $lookup: {
+                from: "users",
+                localField: "postedBy",
+                foreignField: "_id",
+                as: "postedBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                postedBy: { $first: "$postedBy" }
+            }
         }
-    ).populate("postedBy", "username fullName");
+    ]);
 
     return res
         .status(200)
@@ -72,12 +114,39 @@ export const getAllPosts = asyncHandler(async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const posts = await CampusBuzz.find()// no filter arguments, which fetches every single post stored in the database collection.
-        .populate("postedBy", "username fullName")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit);
-
+    const posts = await CampusBuzz.aggregate([
+        {
+            $sort: { createdAt: -1 }
+        },
+        {
+            $skip: skip
+        },
+        {
+            $limit: limit
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "postedBy",
+                foreignField: "_id",
+                as: "postedBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                postedBy: { $first: "$postedBy" }
+            }
+        }
+    ]);
+    
     const totalPosts = await CampusBuzz.countDocuments();
 
     return res

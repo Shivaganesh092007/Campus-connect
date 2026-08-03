@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -23,10 +24,36 @@ export const createAnswer = asyncHandler(async (req, res) => {
         answeredBy: req.user._id,
     });
 
-    const createdAnswer = await Answer.findById(answer._id).populate(
-        "answeredBy",
-        "username fullName"
-    );
+    const createdAnswer = await Answer.aggregate([
+        { 
+            $match: { 
+                _id: answer._id 
+            } 
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "answeredBy",
+                foreignField: "_id",
+                as: "answeredBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                answeredBy: {
+                    $first: "$answeredBy" 
+                }
+            }
+        }
+    ]);
 
     return res
         .status(201)
@@ -60,7 +87,7 @@ export const updateAnswer = asyncHandler( async(req,res)=>{
         throw new ApiError(400, "This answer does not belong to the specified question");
     }
 
-    const updatedAnswer = await Answer.findByIdAndUpdate(
+    await Answer.findByIdAndUpdate(
         id,
         {
             $set:{
@@ -72,6 +99,35 @@ export const updateAnswer = asyncHandler( async(req,res)=>{
         }
     )
 
+    const updatedAnswer = await Answer.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(id)
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "answeredBy",
+                foreignField: "_id",
+                as: "answeredBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                answeredBy: { $first: "$answeredBy" }
+            }
+        }
+    ]);
+
     return res
         .status(200)
         .json(new ApiResponse(200, updatedAnswer, "Answer updated successfully"));
@@ -80,9 +136,37 @@ export const updateAnswer = asyncHandler( async(req,res)=>{
 export const getAnswersForQuestion = asyncHandler(async (req, res) => {
     const { questionId } = req.params;
 
-    const answers = await Answer.find({ question: questionId })
-        .populate("answeredBy", "username fullName")
-        .sort({ createdAt: -1 });
+    const answers = await Answer.aggregate([
+        {
+            $match: {
+                question: new mongoose.Types.ObjectId(questionId)
+            }
+        },
+        {
+            $sort: { createdAt: -1 }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "answeredBy",
+                foreignField: "_id",
+                as: "answeredBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                answeredBy: { $first: "$answeredBy" }
+            }
+        }
+    ]);
 
     return res
         .status(200)

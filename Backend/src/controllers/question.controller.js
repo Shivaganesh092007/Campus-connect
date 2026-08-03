@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Question } from "../models/question.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -18,12 +19,36 @@ export const createQuestion=asyncHandler(async(req,res)=>{
         askedBy: req.user._id,
     })
 
-    const createdQuestion = await question.populate(
-        "askedBy",
-        "username fullName"
-    );
+    const createdQuestion = await Question.aggregate([
+        {
+            $match: {
+                _id: question._id
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "askedBy",
+                foreignField: "_id",
+                as: "askedBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                askedBy: { $first: "$askedBy" }
+            }
+        }
+    ]);
 
-    if (!createdQuestion) {
+    if (!createdQuestion || createdQuestion.length === 0) {
         throw new ApiError(500, "Something went wrong while posting the question");
     }
 
@@ -52,7 +77,7 @@ export const updateQuestion = asyncHandler(async (req,res)=>{
         throw new ApiError(403, "You do not have permission to edit this question");
     }
 
-    const updatedQuestion = await Question.findByIdAndUpdate(
+    await Question.findByIdAndUpdate(
         id,
         {
             $set:{
@@ -65,7 +90,36 @@ export const updateQuestion = asyncHandler(async (req,res)=>{
         {
             new: true
         }
-    ).populate("askedBy","fullName username")
+    )
+
+    const updatedQuestion = await Question.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(id)
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "askedBy",
+                foreignField: "_id",
+                as: "askedBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                askedBy: { $first: "$askedBy" }
+            }
+        }
+    ]);
 
     return res
         .status(200)
@@ -84,9 +138,35 @@ export const getAllQuestions = asyncHandler(async (req, res) => {
         filter.title = { $regex: escapedSearch, $options: 'i' };
     }
 
-    const questions = await Question.find(filter)
-        .populate("askedBy", "username fullName")
-        .sort({ createdAt: -1 });
+    const questions = await Question.aggregate([
+        {
+            $match: filter
+        },
+        {
+            $sort: { createdAt: -1 }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "askedBy",
+                foreignField: "_id",
+                as: "askedBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                askedBy: { $first: "$askedBy" }
+            }
+        }
+    ]);
 
     return res
         .status(200)
@@ -94,12 +174,36 @@ export const getAllQuestions = asyncHandler(async (req, res) => {
 });
 
 export const getQuestionById = asyncHandler(async (req, res) => {
-    const question = await Question.findById(req.params.id).populate(
-        "askedBy",
-        "username fullName"
-    );
+    const questions = await Question.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.params.id)
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "askedBy",
+                foreignField: "_id",
+                as: "askedBy",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                askedBy: { $first: "$askedBy" }
+            }
+        }
+    ]);
 
-    if (!question) {
+    if (!question || questions.length === 0) {
         throw new ApiError(404, "Question does not exist");
     }
 
