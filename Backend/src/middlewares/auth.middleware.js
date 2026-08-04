@@ -8,7 +8,6 @@ const verifyJWT= asyncHandler(async function(req,res,next){
 
     if(!token){
         throw new ApiError(401,"Unauthorized request");
-        return;
     }
 
     try {
@@ -24,7 +23,7 @@ const verifyJWT= asyncHandler(async function(req,res,next){
         
     } catch (error) {
         console.log("verification/authentication failed",error);
-        throw new ApiError(401,error?.message ||"verification/authentication failed",error);
+        throw new ApiError(401,error?.message ||"verification/authentication failed",[]);
     }
 })
 
