@@ -12,7 +12,7 @@ const router = Router({ mergeParams: true }); // needed to access :questionId fr
 // Router({ mergeParams: true }) — without this, the nested router can't see :questionId from the parent path. Easy to forget and a classic silent bug (route "works" but req.params.questionId is undefined).
 
 router.route("/").post(verifyJWT, createAnswer);
-router.route("/:questionId/answers/:answerId").patch(verifyJWT, updateAnswer);
+router.route("/:id").patch(verifyJWT, updateAnswer);
 router.route("/").get(getAnswersForQuestion);
 router.route("/:id/upvote").post(verifyJWT, toggleAnswerUpvote);
 router.route("/:id").delete(verifyJWT, deleteAnswer);

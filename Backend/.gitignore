@@ -1,9 +1,12 @@
-<<<<<<< HEAD
-node_modules/
-.env
+# OS generated files
 .DS_Store
-dist/
-=======
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
 # Logs
 logs
 *.log
@@ -91,9 +94,6 @@ dist
 
 # Gatsby files
 .cache/
-# Comment in the public line in if your project uses Gatsby and not Next.js
-# https://nextjs.org/blog/next-9-1#public-directory-support
-# public
 
 # vuepress build output
 .vuepress/dist
@@ -147,4 +147,3 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
->>>>>>> b8b7cae6ca9da7a6658c4fa5bbe6095dfc002b02

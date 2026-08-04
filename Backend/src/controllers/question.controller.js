@@ -203,7 +203,7 @@ export const getQuestionById = asyncHandler(async (req, res) => {
         }
     ]);
 
-    if (!question || questions.length === 0) {
+    if (!questions || questions.length === 0) {
         throw new ApiError(404, "Question does not exist");
     }
 

@@ -75,6 +75,18 @@ export const updatePost = asyncHandler(async (req,res)=>{
         throw new ApiError(403, "Unauthorised access");
     }
 
+    await CampusBuzz.findByIdAndUpdate(
+        req.params.id,
+        {
+            $set: {
+                text: text
+            }
+        },
+        {
+            new: true
+        }
+    );
+
     const updatedPost = await CampusBuzz.aggregate([
         {
             $match: {
