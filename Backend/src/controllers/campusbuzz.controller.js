@@ -51,7 +51,7 @@ export const createPost = asyncHandler(async (req, res) => {
 
     return res
         .status(201)
-        .json(new ApiResponse(201, createdPost, "Posted successfully"));
+        .json(new ApiResponse(201, createdPost[0], "Posted successfully"));
 });
 
 export const updatePost = asyncHandler(async (req,res)=>{
@@ -118,7 +118,7 @@ export const updatePost = asyncHandler(async (req,res)=>{
 
     return res
         .status(200)
-        .json(new ApiResponse(200, updatedPost, "Post updated successfully"));
+        .json(new ApiResponse(200, updatedPost[0], "Post updated successfully"));
 })
 
 export const getAllPosts = asyncHandler(async (req, res) => {

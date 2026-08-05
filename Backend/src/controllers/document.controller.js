@@ -72,7 +72,7 @@ export const uploadDocument = asyncHandler(async (req,res)=>{
     return res
         .status(200)
         .json(
-            new ApiResponse(200,uploadedFile,"file uploaded successfully")
+            new ApiResponse(200,uploadedFile[0],"file uploaded successfully")
         )
 });
 
@@ -149,6 +149,10 @@ export const deleteDocument = asyncHandler(async(req,res)=>{
     }
 
     const result = await deleteFileOnCloudinary(document.filePublicId);// deletion on cloudinary
+
+    if (!result) {
+        console.warn(`Cloudinary deletion may have failed for publicId: ${document.filePublicId}`);
+    }
 
     await Document.findByIdAndDelete(document._id); // deletion on MongoDB
 

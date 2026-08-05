@@ -57,7 +57,7 @@ export const createAnswer = asyncHandler(async (req, res) => {
 
     return res
         .status(201)
-        .json(new ApiResponse(201, createdAnswer, "Answer posted successfully"));
+        .json(new ApiResponse(201, createdAnswer[0], "Answer posted successfully"));
 });
 
 export const updateAnswer = asyncHandler( async(req,res)=>{
@@ -130,7 +130,7 @@ export const updateAnswer = asyncHandler( async(req,res)=>{
 
     return res
         .status(200)
-        .json(new ApiResponse(200, updatedAnswer, "Answer updated successfully"));
+        .json(new ApiResponse(200, updatedAnswer[0], "Answer updated successfully"));
 })
 
 export const getAnswersForQuestion = asyncHandler(async (req, res) => {
@@ -180,6 +180,10 @@ export const toggleAnswerUpvote = asyncHandler(async (req, res) => {
     const answer = await Answer.findById(id);
     if (!answer) throw new ApiError(404, "Answer does not exist");
 
+    if (answer.question.toString() !== questionId) {
+        throw new ApiError(400, "This answer does not belong to the specified question");
+    }
+
     const alreadyUpvoted = answer.upvotes.includes(userId);
     const updateQuery = alreadyUpvoted 
         ? { $pull: { upvotes: userId } } 
@@ -197,12 +201,17 @@ export const toggleAnswerUpvote = asyncHandler(async (req, res) => {
 });
 
 export const deleteAnswer = asyncHandler(async (req, res) => {
-    const answer = await Answer.findById(req.params.id);
+    const { questionId, id } = req.params;
+    const answer = await Answer.findById(id);
 
     if (!answer) {
         throw new ApiError(404, "Answer does not exist");
     }
 
+    if (answer.question.toString() !== questionId) {
+        throw new ApiError(400, "This answer does not belong to the specified question");
+    }
+    
     if (answer.answeredBy.toString() !== req.user._id.toString()) {
         throw new ApiError(403, "Unauthorised access");
     }

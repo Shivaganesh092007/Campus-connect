@@ -156,7 +156,7 @@ export const refreshingAccessToken=asyncHandler(async (req,res)=>{
             process.env.REFRESH_TOKEN_SECRET
         );
     
-        const user = await User.findById(decodedToken?._id).select("+refreshToken");;
+        const user = await User.findById(decodedToken?._id).select("+refreshToken");
     
         if (!user) {
             throw new ApiError(401, "Invalid refresh token");

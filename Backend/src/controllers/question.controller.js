@@ -55,7 +55,7 @@ export const createQuestion=asyncHandler(async(req,res)=>{
     return res
         .status(201)
         .json(
-            new ApiResponse(201,createdQuestion,"Question posted successfully")
+            new ApiResponse(201,createdQuestion[0],"Question posted successfully")
         )
 })
 
@@ -123,7 +123,7 @@ export const updateQuestion = asyncHandler(async (req,res)=>{
 
     return res
         .status(200)
-        .json(new ApiResponse(200, updatedQuestion, "Question updated successfully"));
+        .json(new ApiResponse(200, updatedQuestion[0], "Question updated successfully"));
 })
 
 export const getAllQuestions = asyncHandler(async (req, res) => {
@@ -174,7 +174,7 @@ export const getAllQuestions = asyncHandler(async (req, res) => {
 });
 
 export const getQuestionById = asyncHandler(async (req, res) => {
-    const questions = await Question.aggregate([
+    const question = await Question.aggregate([
         {
             $match: {
                 _id: new mongoose.Types.ObjectId(req.params.id)
@@ -203,7 +203,7 @@ export const getQuestionById = asyncHandler(async (req, res) => {
         }
     ]);
 
-    if (!questions || questions.length === 0) {
+    if (!question || question.length === 0) {
         throw new ApiError(404, "Question does not exist");
     }
 
