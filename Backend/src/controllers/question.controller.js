@@ -129,6 +129,10 @@ export const updateQuestion = asyncHandler(async (req,res)=>{
 export const getAllQuestions = asyncHandler(async (req, res) => {
     const { search, branch, topic, status } = req.query;
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const skip = (page - 1) * limit;
+
     const filter = {};
     if (branch) filter.branch = branch;
     if (topic) filter.topic = topic;
@@ -144,6 +148,12 @@ export const getAllQuestions = asyncHandler(async (req, res) => {
         },
         {
             $sort: { createdAt: -1 }
+        },
+        {
+            $skip: skip
+        },
+        {
+            $limit: limit
         },
         {
             $lookup: {
@@ -168,9 +178,17 @@ export const getAllQuestions = asyncHandler(async (req, res) => {
         }
     ]);
 
-    return res
-        .status(200)
-        .json(new ApiResponse(200, { count: questions.length, questions }, "Questions fetched successfully"));
+    const totalQuestions = await Question.countDocuments(filter);
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            count: questions.length,
+            totalQuestions,
+            currentPage: page,
+            totalPages: Math.ceil(totalQuestions / limit),
+            questions
+        }, "Questions fetched successfully")
+    );
 });
 
 export const getQuestionById = asyncHandler(async (req, res) => {

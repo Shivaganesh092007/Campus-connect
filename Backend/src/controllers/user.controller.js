@@ -5,6 +5,12 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { deleteFileOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken"
 import fs from "fs";
+import { Question } from "../models/question.model.js";
+import { Answer } from "../models/answer.model.js";
+import { Document } from "../models/document.model.js";
+import { CampusBuzz } from "../models/campusbuzz.model.js";
+import mongoose from "mongoose";
+
 
 const cookieOptions = {
     httpOnly: true,
@@ -183,4 +189,200 @@ export const refreshingAccessToken=asyncHandler(async (req,res)=>{
     } catch (error) {
         throw new ApiError(401, error?.message || "Invalid refresh token");  
     }
+})
+
+export const userActivity = asyncHandler( async(req,res) => {
+    const userId = req.params.id
+
+    const user = await User.findById(userId);
+    if (!user) throw new ApiError(404, "User does not exist");
+
+    const questionsPage = parseInt(req.query.questionsPage) || 1;
+    const questionsLimit = Math.min(parseInt(req.query.questionsLimit) || 10, 50);
+    const questionsSkip = (questionsPage - 1) * questionsLimit;
+
+    const answersPage = parseInt(req.query.answersPage) || 1;
+    const answersLimit = Math.min(parseInt(req.query.answersLimit) || 10, 50);
+    const answersSkip = (answersPage - 1) * answersLimit;
+
+    const documentsPage = parseInt(req.query.documentsPage) || 1;
+    const documentsLimit = Math.min(parseInt(req.query.documentsLimit) || 10, 50);
+    const documentsSkip = (documentsPage - 1) * documentsLimit;
+
+    const postsPage = parseInt(req.query.postsPage) || 1;
+    const postsLimit = Math.min(parseInt(req.query.postsLimit) || 10, 50);
+    const postsSkip = (postsPage - 1) * postsLimit;
+
+    const [
+        userQuestions,
+        userAnswers,
+        userDocuments,
+        userPosts,
+        totalQuestions,
+        totalAnswers,
+        totalDocuments,
+        totalPosts
+    ] = await Promise.all([
+        Question.aggregate([
+            {
+                $match: {
+                    askedBy: new mongoose.Types.ObjectId(userId)
+                }
+            },
+            {
+                $sort: {createdAt: -1}
+            },
+            {
+                $skip: questionsSkip
+            },
+            {
+                $limit: questionsLimit
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "askedBy",
+                    foreignField: "_id",
+                    as: "askedBy",
+                    pipeline: [
+                        {
+                            $project: {
+                                username: 1,
+                                fullName: 1
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    askedBy: { $first: "$askedBy" }
+                }
+            }
+        ]),
+        Answer.aggregate([
+            {
+                $match: {
+                    answeredBy: new mongoose.Types.ObjectId(userId)
+                }
+            },
+            {
+                $sort: {createdAt: -1}
+            },
+            {
+                $skip: answersSkip
+            },
+            {
+                $limit: answersLimit
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "answeredBy",
+                    foreignField: "_id",
+                    as: "answeredBy",
+                    pipeline: [
+                        {
+                            $project: {
+                                username: 1,
+                                fullName: 1
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    answeredBy: { $first: "$answeredBy" }
+                }
+            }
+        ]),
+        Document.aggregate([
+            {
+                $match: {
+                    uploadedBy: new mongoose.Types.ObjectId(userId)
+                }
+            },
+            {
+                $sort: {createdAt: -1}
+            },
+            {
+                $skip: documentsSkip
+            },
+            {
+                $limit: documentsLimit
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "uploadedBy",
+                    foreignField: "_id",
+                    as: "uploadedBy",
+                    pipeline: [
+                        {
+                            $project: {
+                                username: 1,
+                                fullName: 1
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    uploadedBy: { $first: "$uploadedBy" }
+                }
+            }
+        ]),
+        CampusBuzz.aggregate([
+            {
+                $match: {
+                    postedBy: new mongoose.Types.ObjectId(userId)
+                }
+            },
+            {
+                $sort: {createdAt: -1}
+            },
+            {
+                $skip: postsSkip
+            },
+            {
+                $limit: postsLimit
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "postedBy",
+                    foreignField: "_id",
+                    as: "postedBy",
+                    pipeline: [
+                        {
+                            $project: {
+                                username: 1,
+                                fullName: 1,
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    postedBy: { $first: "$postedBy" }
+                }
+            }
+        ]),
+        Question.countDocuments({ askedBy: userId }),
+        Answer.countDocuments({ answeredBy: userId }),
+        Document.countDocuments({ uploadedBy: userId }),
+        CampusBuzz.countDocuments({ postedBy: userId })
+    ]);
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            questions: { total: totalQuestions, currentPage: questionsPage, data: userQuestions },
+            answers: { total: totalAnswers, currentPage: answersPage, data: userAnswers },
+            documents: { total: totalDocuments, currentPage: documentsPage, data: userDocuments },
+            posts: { total: totalPosts, currentPage: postsPage, data: userPosts }
+        }, "User activity retrieved successfully")
+    );
 })

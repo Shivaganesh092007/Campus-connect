@@ -136,6 +136,10 @@ export const updateAnswer = asyncHandler( async(req,res)=>{
 export const getAnswersForQuestion = asyncHandler(async (req, res) => {
     const { questionId } = req.params;
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
     const answers = await Answer.aggregate([
         {
             $match: {
@@ -144,6 +148,12 @@ export const getAnswersForQuestion = asyncHandler(async (req, res) => {
         },
         {
             $sort: { createdAt: -1 }
+        },
+        {
+            $skip: skip
+        },
+        {
+            $limit: limit
         },
         {
             $lookup: {
@@ -168,13 +178,22 @@ export const getAnswersForQuestion = asyncHandler(async (req, res) => {
         }
     ]);
 
-    return res
-        .status(200)
-        .json(new ApiResponse(200, { count: answers.length, answers }, "Answers fetched successfully"));
+    const totalAnswers = await Answer.countDocuments({
+        question: new mongoose.Types.ObjectId(questionId)
+    });
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            count: answers.length,
+            totalAnswers,
+            currentPage: page,
+            answers
+        }, "Answers fetched successfully")
+    );
 });
 
 export const toggleAnswerUpvote = asyncHandler(async (req, res) => {
-    const { id } = req.params;
+    const { id, questionId } = req.params;
     const userId = req.user._id;
 
     const answer = await Answer.findById(id);

@@ -79,6 +79,10 @@ export const uploadDocument = asyncHandler(async (req,res)=>{
 export const getAllDocuments = asyncHandler(async(req,res)=>{
     const { search, branch, courseCode } = req.query; //search :- what user searched for
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const skip = (page - 1) * limit;
+
     //Initializing an empty filter object
     const filter = {};
 
@@ -103,6 +107,12 @@ export const getAllDocuments = asyncHandler(async(req,res)=>{
         {
             $sort: { createdAt: -1 }
         },
+        { 
+            $skip: skip 
+        },
+        { 
+            $limit: limit 
+        },
         {
             $lookup: {
                 from: "users",
@@ -126,15 +136,16 @@ export const getAllDocuments = asyncHandler(async(req,res)=>{
         }
     ]);
 
+    const totalDocuments = await Document.countDocuments(filter);
+
     return res.status(200).json(
-        new ApiResponse(
-            200,
-            {
-                count: documents.length,
-                data: documents,
-            },
-            "Data fetched successfully"
-        )
+        new ApiResponse(200, {
+            count: documents.length,
+            totalDocuments,
+            currentPage: page,
+            totalPages: Math.ceil(totalDocuments / limit),
+            data: documents,
+        }, "Data fetched successfully")
     );
 })
 

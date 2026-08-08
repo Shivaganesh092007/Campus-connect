@@ -159,7 +159,7 @@ export const getAllPosts = asyncHandler(async (req, res) => {
         }
     ]);
     
-    const totalPosts = await CampusBuzz.countDocuments();
+    const totalPosts = await CampusBuzz.countDocuments();//total no. of docs in database
 
     return res
         .status(200)
